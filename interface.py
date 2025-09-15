@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 from arvore import Node
 
 class TreeGUI:
@@ -37,15 +38,45 @@ class TreeGUI:
         self.remove_button.grid(row=1, column=4, padx=10, pady=5)
         
         
+        
+        
     def add_node(self):
-        print("Adicionando nó...")
+        parent_value = self.parent_entry.get()
+        new_node_value = self.new_node_entry.get()
+        
+        if not parent_value or not new_node_value:
+            print("Entrada inválida.")
+            return
+        
+        parent_node = self.tree.find(parent_value)
+        
+        if parent_node:
+            parent_node.insert(new_node_value)
+            print(f"Nó '{new_node_value}' adicionado sob '{parent_value}'.")
+            self.new_node_entry.delete(0, tk.END)
+            self.tree.display()
+        else: 
+            print(f"Nó pai '{parent_value}' não encontrado.") 
         
     def remove_node(self):
-        print("Removendo nó...")   
+        node_to_remove = self.remove_entry.get()
+        
+        if not node_to_remove:
+            messagebox.showwarning("Entrada Inválida", "Por favor, insira o valor do nó a ser removido.")
+            return  
+        
+        if node_to_remove == self.tree.value:
+            messagebox.showwarning("Remoção Inválida", "Não é possível remover o nó raiz.")
+            return
+        
+        if self.tree.remove(node_to_remove):
+            print(f"Nó '{node_to_remove}' removido.")
+            self.remove_entry.delete(0, tk.END)
+            self.tree.display()
+        else:
+            print(f"Nó '{node_to_remove}' não encontrado.")
         
         
-        
-        print("Interface gráfica iniciada.")
         
 if __name__ == "__main__":
     root = tk.Tk()
