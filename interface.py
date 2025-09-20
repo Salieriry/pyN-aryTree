@@ -8,9 +8,10 @@ class TreeGUI:
     def __init__(self, master):
         self.master = master # Referência para a janela principal
         self.master.title("Visualizador de Árvore N-ária") # Título da janela
-        self.master.geometry("800x600") # Tamanho da janela
+        self.master.geometry() # Tamanho da janela
         
         self.tree = Node("Root")  # Inicializa a árvore com um nó raiz
+        self.selected_node = None  # Nó atualmente selecionado (inicialmente nenhum)
         
         # Frame para os controles de adicionar e remover nós
         control_frame = tk.Frame(self.master, padx=10, pady=10)
@@ -44,38 +45,63 @@ class TreeGUI:
         self.remove_button.grid(row=1, column=4, padx=10, pady=5)
         
         # Canvas para desenhar a árvore
-        self.canvas = tk.Canvas(self.master, bg="ivory")
-        self.canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        canvas_frame = tk.Frame(self.master)
+        canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(canvas_frame, bg="ivory")
+        
+        h_scroll = tk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        v_scroll = tk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.canvas.configure(xscrollcommand=h_scroll.set, yscrollcommand=v_scroll.set)
+        
+        h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        
         
         # Desenha a árvore inicialmente
         self.master.after(100, self.draw_tree)
+        
         
     # Método para desenhar a árvore no canvas    
     def draw_tree(self):
         self.canvas.delete("all") # Limpa o canvas antes de redesenhar a árvore
         
+        self.canvas.tag_bind("node", "<Button-1>", self._on_node_click)
+        
         # Desenha a árvore recursivamente a partir do nó raiz
         if self.tree:
             
-            window_width = self.canvas.winfo_width() # Largura do canvas
-            
-            start_x = window_width // 2 # Posição x inicial para desenhar o nó raiz
+            landscape_width = 2000
+                      
+            start_x = landscape_width // 2 # Posição x inicial para desenhar o nó raiz
             start_y = 50 # Posição y inicial para desenhar o nó raiz
             
-            h_spacing = window_width // 4 # Espaçamento horizontal entre os nós
+            h_spacing = landscape_width // 4 # Espaçamento horizontal entre os nós
                    
             # Chama o método recursivo para desenhar os nós
             self._recursive_node_draw(self.tree, start_x, start_y, h_spacing)
+            
+            bbox = self.canvas.bbox("all")
+            if bbox:
+                self.canvas.config(scrollregion=bbox)
     
     # Método recursivo para desenhar cada nó e seus filhos        
     def _recursive_node_draw(self, node, x, y, h_spacing):
         node_radius = 20 # Raio do círculo que representa o nó
+        radius_hitbox = node_radius + 5 # Raio da área clicável do nó
         vertical_spacing = 100 # Espaçamento vertical entre os níveis da árvore
+        
+        # Desenha a área clicável do nó (hitbox)
+        self.canvas.create_oval(
+            x - radius_hitbox, y - radius_hitbox, x + radius_hitbox, y + radius_hitbox,
+            fill="", outline="", tags=("node", node.value)
+        )
         
         # Desenha o nó atual como um círculo com o valor do nó
         self.canvas.create_oval(
             x - node_radius, y - node_radius, x + node_radius, y + node_radius,
-            fill="skyblue", outline="black"
+            fill="skyblue", outline="black", tags=(f"visual_{node.value}",)
         )
         
         # Desenha o valor do nó no centro do círculo
@@ -93,7 +119,32 @@ class TreeGUI:
                 
                 self.canvas.create_line(x, y + node_radius, x_child, y_child - node_radius, width=1)
                 
-                self._recursive_node_draw(child, x_child, y_child, h_spacing * 0.5)        
+                self._recursive_node_draw(child, x_child, y_child, h_spacing * 0.5)
+                
+    def _on_node_click(self, event):
+        item_id_list = self.canvas.find_withtag("current")
+        if not item_id_list: return
+        
+        item_id = item_id_list[0]
+        
+        tags = self.canvas.gettags(item_id)
+        if len(tags) < 2: return
+        
+        node_value = tags[1]
+        
+        if self.selected_node:
+            self.canvas.itemconfig(f"visual_{self.selected_node.value}", fill="skyblue")
+            
+        self.selected_node = self.tree.find(node_value)
+        
+        if self.selected_node:
+            self.canvas.itemconfig(f"visual_{node_value}", fill="lightgreen")
+        
+        self.parent_entry.delete(0, tk.END)
+        self.parent_entry.insert(0, node_value)
+        
+        self.remove_entry.delete(0, tk.END)
+        self.remove_entry.insert(0, node_value)                    
     
     # Método para adicionar um novo nó à árvore    
     def add_node(self):
@@ -138,6 +189,8 @@ class TreeGUI:
             self.draw_tree()
         else:
             print(f"Nó '{node_to_remove}' não encontrado.")
+    
+
         
         
         
