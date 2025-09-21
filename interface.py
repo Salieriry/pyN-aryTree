@@ -46,7 +46,8 @@ class TreeGUI:
         
         self.create_widgets() # Configura os widgets da interface
         
-        self.add_new_tree() # Adiciona uma árvore inicial
+        self.master.after(100, self.add_new_tree)  # Aguardar canvas renderizar
+    
     
     # Configura estilos visuais da interface    
     def setup_styles(self):
@@ -274,40 +275,8 @@ class TreeGUI:
             self.draw_tree()
             self.parent_entry.delete(0, tk.END)
             self.parent_entry.insert(0, self.trees[self.current_tree_index]['root'].value)
-    
-    
-    # Método para desenhar a árvore no canvas
-    def draw_tree(self):
-        
-        self.canvas.delete("all")
-        
-        # Limpar dicionário de posições
-        self.node_positions = {}
-        
-        if self.current_tree_index < 0 or not self.trees:
-            return
-        
-        tree = self.trees[self.current_tree_index]['root']
-        
-        if tree:
-            # Calcular dimensões da árvore
-            self._calculate_tree_dimensions(tree)
-            
-            canvas_width = self.canvas.winfo_width() or 800
-            start_x = canvas_width // 2
-            start_y = 60
-            
-            # Desenhar a árvore
-            self._draw_node(tree, start_x, start_y, canvas_width // 2)
-            
-            # Atualizar região de scroll
-            bbox = self.canvas.bbox("all")
-            if bbox:
-                padding = 50
-                x1, y1, x2, y2 = bbox
-                self.canvas.config(scrollregion=(x1-padding, y1-padding, 
-                                                 x2+padding, y2+padding))
                 
+                            
     # Método auxiliar para calcular dimensões da árvore    
     def _calculate_tree_dimensions(self, node):
         
@@ -323,82 +292,7 @@ class TreeGUI:
         
         self.tree_leaves = count_leaves(node)
         self.tree_depth = get_depth(node)
-    
-    # Método recursivo para desenhar cada nó
-    def _draw_node(self, node, x, y, h_spacing, parent_x=None, parent_y=None):
-        
-        node_id = f"{self.current_tree_index}_{node.value}"
-        
-        # Verificar se existe posição customizada
-        if node_id in self.custom_positions:
-            x, y = self.custom_positions[node_id]
-        
-        # Salvar posição do nó para referência
-        self.node_positions = getattr(self, 'node_positions', {})
-        self.node_positions[node.value] = (x, y)
-        
-        # Desenhar linha do pai se existir
-        if parent_x is not None and parent_y is not None:
-            # Criar linha curva
-            mid_y = (parent_y + y) // 2
-            self.canvas.create_line(parent_x, parent_y + 25, parent_x, mid_y,
-                                   x, mid_y, x, y - 25,
-                                   fill=self.colors['line'], width=2, smooth=True,
-                                   tags=("line",))
-        
-        # Determinar cor do nó
-        node_color = self.colors['node_default']
-        if node == self.trees[self.current_tree_index]['root']:
-            node_color = self.colors['root_node']
-        if self.selected_node and self.selected_node.value == node.value:
-            node_color = self.colors['node_selected']
-        
-        # Tag única para todos os elementos deste nó
-        node_tag = f"node_element_{node.value}"
-        
-        # Criar gradiente visual (simulado com múltiplos círculos)
-        for i in range(3):
-            radius = 25 - i * 2
-            color = self._lighten_color(node_color, i * 20)
-            self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius,
-                                   fill=color, outline="",
-                                   tags=(node_tag, f"node_bg_{node.value}", f"node_bg_layer_{i}_{node.value}"))
-        
-        # Círculo principal do nó
-        self.canvas.create_oval(x - 22, y - 22, x + 22, y + 22,
-                               fill="", outline=self.colors['node_border'], width=2,
-                               tags=(node_tag, f"node_circle_{node.value}"))
-        
-        # Texto do nó
-        self.canvas.create_text(x, y, text=node.value,
-                               font=("Segoe UI", 10, "bold"),
-                               fill=self.colors['text'],
-                               tags=(node_tag, f"node_text_{node.value}"))
-        
-        # Criar hitbox invisível (área clicável maior)
-        hitbox_radius = 30
-        self.canvas.create_oval(x - hitbox_radius, y - hitbox_radius, 
-                               x + hitbox_radius, y + hitbox_radius,
-                               fill="", outline="",
-                               tags=("hitbox", f"hitbox_{node.value}", node_id))
-        
-        # Desenhar filhos
-        if node.children:
-            child_count = len(node.children)
-            spacing = self.spacing_var.get()
-            
-            # Calcular largura total necessária
-            total_width = (child_count - 1) * spacing
-            start_x = x - total_width // 2
-            
-            for i, child in enumerate(node.children):
-                child_x = start_x + i * spacing
-                child_y = y + 120
-                
-                # Reduzir espaçamento para níveis mais profundos
-                new_h_spacing = max(h_spacing * 0.7, 40)
-                self._draw_node(child, child_x, child_y, new_h_spacing, x, y)
-    
+       
     # Método para clarear uma cor hex            
     def _lighten_color(self, color, amount):
         
@@ -408,6 +302,24 @@ class TreeGUI:
         g = min(255, g + amount)
         b = min(255, b + amount)
         return f'#{r:02x}{g:02x}{b:02x}'
+    
+    # Obtém todos os descendentes de um nó
+    def get_node_descendants(self, node_value):
+        descendants = []
+        tree = self.trees[self.current_tree_index]['root']
+        node = tree.find(node_value)
+        
+        if node:
+            # Função recursiva para coletar todos os descendentes
+            def collect_descendants(n):
+                for child in n.children:
+                    descendants.append(child.value)
+                    collect_descendants(child)
+            
+            collect_descendants(node)
+        
+        return descendants
+    
     
     # Método para efeito hover nos nós
     def on_hover(self, event):
@@ -506,6 +418,201 @@ class TreeGUI:
                     self.drag_data["y"] = event.y
                     self.drag_data["node"] = node_value
                     self.drag_data["node_id"] = node_id
+                    
+    # Métodos para drag and drop dos nós
+    def on_drag_motion(self, event):
+        if self.dragging and self.drag_data["node"]:
+            # Calcular delta
+            dx = event.x - self.drag_data["x"]
+            dy = event.y - self.drag_data["y"]
+            
+            node_value = self.drag_data["node"]
+            
+            # Mover o nó principal
+            for item in self.canvas.find_withtag(f"node_element_{node_value}"):
+                self.canvas.move(item, dx, dy)
+            
+            # Mover hitbox do nó principal
+            for item in self.canvas.find_withtag(f"hitbox_{node_value}"):
+                self.canvas.move(item, dx, dy)
+            
+            # IMPORTANTE: Mover todos os descendentes também
+            descendants = self.get_node_descendants(node_value)
+            for desc_value in descendants:
+                # Mover elementos do descendente
+                for item in self.canvas.find_withtag(f"node_element_{desc_value}"):
+                    self.canvas.move(item, dx, dy)
+                
+                # Mover hitbox do descendente
+                for item in self.canvas.find_withtag(f"hitbox_{desc_value}"):
+                    self.canvas.move(item, dx, dy)
+            
+            # Mover apenas as linhas conectadas ao nó e seus descendentes
+            # Criar conjunto de todos os nós sendo movidos
+            moved_nodes = {node_value} | set(descendants)
+            
+            # Mover linhas que partem destes nós
+            for moved_node in moved_nodes:
+                for item in self.canvas.find_withtag(f"line_from_{moved_node}"):
+                    self.canvas.move(item, dx, dy)
+            
+            # Mover linha que chega ao nó principal (do pai para ele)
+            for item in self.canvas.find_withtag(f"line_to_{node_value}"):
+                self.canvas.move(item, dx, dy)
+            
+            # Atualizar posição de referência
+            self.drag_data["x"] = event.x
+            self.drag_data["y"] = event.y
+
+    # Método chamado ao soltar o nó arrastado
+    def on_drag_release(self, event):
+        if self.dragging and self.drag_data["node"]:
+            node_value = self.drag_data["node"]
+            node_id = self.drag_data["node_id"]
+            
+            # Coletar todos os nós movidos (principal + descendentes)
+            moved_nodes = [node_value] + self.get_node_descendants(node_value)
+            
+            # Para cada nó movido, salvar sua nova posição
+            for moved_node_value in moved_nodes:
+                moved_node_id = f"{self.current_tree_index}_{moved_node_value}"
+                
+                # Encontrar a hitbox para obter as coordenadas atuais
+                hitbox_items = self.canvas.find_withtag(f"hitbox_{moved_node_value}")
+                if hitbox_items:
+                    coords = self.canvas.coords(hitbox_items[0])
+                    if len(coords) >= 4:
+                        x = (coords[0] + coords[2]) / 2
+                        y = (coords[1] + coords[3]) / 2
+                        
+                        # Salvar posição customizada
+                        self.custom_positions[moved_node_id] = (x, y)
+                        self.trees[self.current_tree_index]['positions'][moved_node_id] = (x, y)
+            
+            # Redesenhar para garantir que tudo está sincronizado
+            # (principalmente as linhas de conexão)
+            self.draw_tree()
+            
+            # Se o nó estava selecionado, mantê-lo selecionado após o redesenho
+            if self.selected_node and self.selected_node.value == node_value:
+                tree = self.trees[self.current_tree_index]['root']
+                node = tree.find(node_value)
+                if node:
+                    self.select_node(node)
+        
+        # Resetar dados do drag
+        self.dragging = False
+        self.drag_data = {"x": 0, "y": 0, "item": None, "node": None, "node_id": None}
+                    
+    # Método para desenhar a árvore no canvas
+    def draw_tree(self):
+        
+        self.canvas.delete("all")
+        
+        # Limpar dicionário de posições
+        self.node_positions = {}
+        
+        if self.current_tree_index < 0 or not self.trees:
+            return
+        
+        tree = self.trees[self.current_tree_index]['root']
+        
+        if tree:
+            # Calcular dimensões da árvore
+            self._calculate_tree_dimensions(tree)
+            
+            canvas_width = self.canvas.winfo_width() or 800
+            start_x = canvas_width // 2
+            start_y = 60
+            
+            # Desenhar a árvore
+            self._draw_node(tree, start_x, start_y, canvas_width // 2, None, None, None)
+            
+            # Atualizar região de scroll
+            bbox = self.canvas.bbox("all")
+            if bbox:
+                padding = 50
+                x1, y1, x2, y2 = bbox
+                self.canvas.config(scrollregion=(x1-padding, y1-padding, 
+                                                 x2+padding, y2+padding))
+                    
+    # Método recursivo para desenhar cada nó
+    def _draw_node(self, node, x, y, h_spacing, parent_x=None, parent_y=None, parent_value=None):
+        node_id = f"{self.current_tree_index}_{node.value}"
+        
+        # Verificar se existe posição customizada
+        if node_id in self.custom_positions:
+            x, y = self.custom_positions[node_id]
+        
+        # Salvar posição do nó para referência
+        self.node_positions = getattr(self, 'node_positions', {})
+        self.node_positions[node.value] = (x, y)
+        
+        # Desenhar linha do pai se existir
+        if parent_x is not None and parent_y is not None and parent_value is not None:
+            # Criar linha curva com tags específicas
+            mid_y = (parent_y + y) // 2
+            self.canvas.create_line(parent_x, parent_y + 25, parent_x, mid_y,
+                                x, mid_y, x, y - 25,
+                                fill=self.colors['line'], width=2, smooth=True,
+                                tags=("line", f"line_from_{parent_value}", f"line_to_{node.value}"))
+        
+        # Determinar cor do nó
+        node_color = self.colors['node_default']
+        if node == self.trees[self.current_tree_index]['root']:
+            node_color = self.colors['root_node']
+        if self.selected_node and self.selected_node.value == node.value:
+            node_color = self.colors['node_selected']
+        
+        # Tag única para todos os elementos deste nó
+        node_tag = f"node_element_{node.value}"
+        
+        # Criar gradiente visual (simulado com múltiplos círculos)
+        for i in range(3):
+            radius = 25 - i * 2
+            color = self._lighten_color(node_color, i * 20)
+            self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius,
+                                fill=color, outline="",
+                                tags=(node_tag, f"node_bg_{node.value}", f"node_bg_layer_{i}_{node.value}"))
+        
+        # Círculo principal do nó
+        self.canvas.create_oval(x - 22, y - 22, x + 22, y + 22,
+                            fill="", outline=self.colors['node_border'], width=2,
+                            tags=(node_tag, f"node_circle_{node.value}"))
+        
+        # Texto do nó
+        self.canvas.create_text(x, y, text=node.value,
+                            font=("Segoe UI", 10, "bold"),
+                            fill=self.colors['text'],
+                            tags=(node_tag, f"node_text_{node.value}"))
+        
+        # Desenhar filhos ANTES da hitbox
+        if node.children:
+            child_count = len(node.children)
+            spacing = self.spacing_var.get()
+            
+            # Calcular largura total necessária
+            total_width = (child_count - 1) * spacing
+            start_x = x - total_width // 2
+            
+            for i, child in enumerate(node.children):
+                child_x = start_x + i * spacing
+                child_y = y + 120
+                
+                # Reduzir espaçamento para níveis mais profundos
+                new_h_spacing = max(h_spacing * 0.7, 40)
+                self._draw_node(child, child_x, child_y, new_h_spacing, x, y, node.value)
+        
+        # Criar hitbox invisível POR ÚLTIMO (área clicável maior)
+        # Isso garante que a hitbox fique acima de todos os outros elementos
+        hitbox_radius = 30
+        self.canvas.create_oval(x - hitbox_radius, y - hitbox_radius, 
+                            x + hitbox_radius, y + hitbox_radius,
+                            fill="", outline="",
+                            tags=("hitbox", f"hitbox_{node.value}", node_id))
+        
+        # Levantar a hitbox para o topo
+        self.canvas.tag_raise(f"hitbox_{node.value}")
     
     # Método para selecionar um nó
     def select_node(self, node):
@@ -542,54 +649,6 @@ class TreeGUI:
         self.remove_entry.insert(0, node.value)
         
         self.status_bar.config(text=f"Nó '{node.value}' selecionado")
-    
-    # Métodos para manipular drag and drop dos nós
-    def on_drag_motion(self, event):
-        
-        if self.dragging and self.drag_data["node"]:
-            # Calcular delta
-            dx = event.x - self.drag_data["x"]
-            dy = event.y - self.drag_data["y"]
-            
-            node_value = self.drag_data["node"]
-            
-            # Mover todos os elementos do nó (gradiente, círculo, texto)
-            for item in self.canvas.find_withtag(f"node_element_{node_value}"):
-                self.canvas.move(item, dx, dy)
-            
-            # Mover hitbox
-            for item in self.canvas.find_withtag(f"hitbox_{node_value}"):
-                self.canvas.move(item, dx, dy)
-            
-            # Atualizar posição de referência
-            self.drag_data["x"] = event.x
-            self.drag_data["y"] = event.y
-    
-    # Finaliza o drag
-    def on_drag_release(self, event):
-        
-        if self.dragging and self.drag_data["node"]:
-            # Obter coordenadas atuais do nó
-            node_value = self.drag_data["node"]
-            node_id = self.drag_data["node_id"]
-            
-            # Encontrar a hitbox para obter as coordenadas
-            hitbox_items = self.canvas.find_withtag(f"hitbox_{node_value}")
-            if hitbox_items:
-                coords = self.canvas.coords(hitbox_items[0])
-                if len(coords) >= 4:
-                    x = (coords[0] + coords[2]) / 2
-                    y = (coords[1] + coords[3]) / 2
-                    
-                    # Salvar posição customizada
-                    self.custom_positions[node_id] = (x, y)
-                    self.trees[self.current_tree_index]['positions'][node_id] = (x, y)
-            
-            # Redesenhar para atualizar linhas
-            self.draw_tree()
-        
-        self.dragging = False
-        self.drag_data = {"x": 0, "y": 0, "item": None, "node": None, "node_id": None}
     
     # Método para adicionar um novo nó
     def add_node(self):
@@ -661,8 +720,3 @@ class TreeGUI:
                 self.status_bar.config(text=f"Nó '{node_value}' removido com sucesso")
             else:
                 messagebox.showerror("Erro", f"Nó '{node_value}' não encontrado!")
-    
-
-        
-        
-        
