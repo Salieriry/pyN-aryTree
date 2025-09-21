@@ -10,6 +10,7 @@ class TreeGUI:
         self.master.title("Visualizador de Árvore N-ária") # Título da janela
         self.master.geometry("1200x700") # Tamanho da janela
         
+        # Cores padrão
         self.colors = {
             'bg': '#2b2b2b',
             'canvas_bg': '#1e1e1e',
@@ -51,8 +52,9 @@ class TreeGUI:
     
     # Configura estilos visuais da interface    
     def setup_styles(self):
-        style = ttk.Style()
-        style.theme_use('clam')
+        style = ttk.Style() # Estilo ttk
+        style.theme_use('clam') # Tema 'clam' para melhor customização
+        
                     
         style.configure('TNotebook', background=self.colors['panel_bg'])
         style.configure('TNotebook.Tab', background=self.colors['panel_bg'],
@@ -203,8 +205,7 @@ class TreeGUI:
         
         return tk.Entry(parent, bg=self.colors['entry_bg'], fg=self.colors['entry_fg'],
                        font=("Segoe UI", 10), bd=0, insertbackground=self.colors['text'])
-    
-        
+            
     # Método para desenhar a árvore no canvas    
     def add_new_tree(self):
         
@@ -319,8 +320,7 @@ class TreeGUI:
             collect_descendants(node)
         
         return descendants
-    
-    
+        
     # Método para efeito hover nos nós
     def on_hover(self, event):
         
