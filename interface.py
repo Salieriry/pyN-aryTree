@@ -383,7 +383,7 @@ class TreeGUI:
     # Método para manipular clique no canvas
     def on_canvas_click(self, event):
         
-        # Encontrar items sob o clique (área ligeiramente maior para melhor detecção)
+        # Encontrar items sob o clique
         overlapping = self.canvas.find_overlapping(event.x-2, event.y-2, event.x+2, event.y+2)
         
         clicked_node = None
@@ -446,8 +446,7 @@ class TreeGUI:
                 # Mover hitbox do descendente
                 for item in self.canvas.find_withtag(f"hitbox_{desc_value}"):
                     self.canvas.move(item, dx, dy)
-            
-            # Mover apenas as linhas conectadas ao nó e seus descendentes
+                       
             # Criar conjunto de todos os nós sendo movidos
             moved_nodes = {node_value} | set(descendants)
             
@@ -586,7 +585,7 @@ class TreeGUI:
                             fill=self.colors['text'],
                             tags=(node_tag, f"node_text_{node.value}"))
         
-        # Desenhar filhos ANTES da hitbox
+        # Desenhar filhos antes da hitbox
         if node.children:
             child_count = len(node.children)
             spacing = self.spacing_var.get()
@@ -603,8 +602,7 @@ class TreeGUI:
                 new_h_spacing = max(h_spacing * 0.7, 40)
                 self._draw_node(child, child_x, child_y, new_h_spacing, x, y, node.value)
         
-        # Criar hitbox invisível POR ÚLTIMO (área clicável maior)
-        # Isso garante que a hitbox fique acima de todos os outros elementos
+        # Criar hitbox invisível por último, garantindo que a hitbox fique acima de todos os outros elementos
         hitbox_radius = 30
         self.canvas.create_oval(x - hitbox_radius, y - hitbox_radius, 
                             x + hitbox_radius, y + hitbox_radius,
